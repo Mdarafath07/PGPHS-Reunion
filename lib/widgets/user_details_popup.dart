@@ -1,8 +1,12 @@
+
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
   final payment = data['payment'] ?? {};
+
+  final tShirtSize = data['tShirtSize'] ?? 'N/A';
 
   showModalBottomSheet(
     context: context,
@@ -16,12 +20,12 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
         builder: (_, controller) {
           return Container(
             decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC), // Light greyish blue background
+              color: Color(0xFFF8FAFC),
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             ),
             child: Column(
               children: [
-                // Handle Bar
+
                 Center(
                   child: Container(
                     margin: const EdgeInsets.only(top: 15, bottom: 10),
@@ -39,16 +43,20 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
                     controller: controller,
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
                     children: [
-                      // Profile Header
+
                       _buildProfileHeader(data),
 
                       const SizedBox(height: 25),
 
-                      // Section: Personal Info
+
                       _buildSectionHeader("Personal Information", Icons.person_outline),
                       _buildInfoCard([
                         _buildRow(Icons.badge, "Reg ID", data['reg_id']),
                         _buildDivider(),
+
+                        _buildRow(Icons.checkroom, "T-Shirt Size", tShirtSize),
+                        _buildDivider(),
+
                         _buildRow(Icons.phone, "Phone", data['phone']),
                         _buildRow(Icons.email, "Email", data['email']),
                         _buildRow(Icons.location_on, "Address", data['address']),
@@ -58,7 +66,7 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
 
                       const SizedBox(height: 25),
 
-                      // Section: Payment Info
+
                       _buildSectionHeader("Payment Details", Icons.payment),
                       _buildInfoCard([
                         _buildStatusRow(payment['status'] ?? 'pending'),
@@ -82,7 +90,6 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
   );
 }
 
-// --- Helper Widgets ---
 
 Widget _buildProfileHeader(Map<String, dynamic> data) {
   return Column(

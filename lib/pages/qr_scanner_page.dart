@@ -9,19 +9,18 @@ class QrScannerPage extends StatefulWidget {
 }
 
 class _QrScannerPageState extends State<QrScannerPage> {
-  // MobileScannerController কে এরর-মুক্ত ভার্সনে ইনিশিয়ালাইজ করা হলো
   final MobileScannerController cameraController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
-    // cameraFacing প্যারামিটারটি এখানে বাদ দেওয়া হয়েছে। ডিফল্টভাবে ব্যাক ক্যামেরা ব্যবহার হবে।
+
   );
 
-  // স্ক্যান করা URL-এর বেস লিংক
+
   static const String baseUrl = 'https://pgphs-reunion.com/verify/';
 
-  // Reg ID এক্সট্র্যাক্ট করার ফাংশন
+
   String? _extractRegId(String url) {
     if (url.startsWith(baseUrl)) {
-      // URL এর শেষ অংশটিই হলো Reg ID
+
       return url.substring(baseUrl.length).toUpperCase();
     }
     return null;
@@ -36,7 +35,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
         final regId = _extractRegId(scannedUrl);
 
         if (regId != null) {
-          // স্ক্যান সফল হলে ক্যামেরা বন্ধ করে রেজাল্ট ফেরত পাঠানো হবে
+
           cameraController.stop();
           if (Navigator.of(context).canPop()) {
             Navigator.pop(context, regId);
@@ -48,7 +47,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   @override
   void dispose() {
-    // ক্যামেরা কন্ট্রোলার ডিসপোজ করা জরুরি
+
     cameraController.dispose();
     super.dispose();
   }
@@ -65,7 +64,7 @@ class _QrScannerPageState extends State<QrScannerPage> {
         controller: cameraController,
         onDetect: _onDetect,
 
-        // Overlay UI - স্ক্যানিং এরিয়া
+
         overlay: Center(
           child: Container(
             width: 250,

@@ -1,8 +1,11 @@
+
+
 import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../widgets/user_card.dart';
 import '../widgets/user_details_popup.dart';
-import 'qr_scanner_page.dart'; // <--- নতুন ইমপোর্ট
+import 'qr_scanner_page.dart';
+import 'tshirt_report_page.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -15,32 +18,25 @@ class _AdminPanelState extends State<AdminPanel> {
   final FirebaseService fs = FirebaseService();
   String _selectedFilter = "All";
 
-  // --- New Methods for QR Scan ---
   Future<Map<String, dynamic>?> _fetchUserByRegId(String regId) async {
-    // এখানে আপনার FirebaseService ব্যবহার করে reg_id দিয়ে ইউজার ডেটা Fetch করতে হবে
-
-    // আমি এখানে ধরে নিচ্ছি fs.getUsers() সমস্ত ইউজারের ডেটা আনছে, যা reg_id
-    // চেক করার জন্য যথেষ্ট (যদিও এটি স্কেলিং-এর জন্য সেরা উপায় নয়, Firestore query সেরা)
     try {
       final currentDocs = await fs.getUsers().first;
 
       for (var doc in currentDocs.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        // Case-insensitive/consistent check
         if (data['reg_id']?.toUpperCase() == regId.toUpperCase()) {
-          // For UserCard actions
           data['userId'] = doc.id;
           return data;
         }
       }
       return null;
     } catch (e) {
-      // Error handling
       return null;
     }
   }
 
   void _scanQRCode() async {
+
     final regId = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (context) => const QrScannerPage()),
@@ -54,10 +50,8 @@ class _AdminPanelState extends State<AdminPanel> {
       final userData = await _fetchUserByRegId(regId);
 
       if (userData != null) {
-        // User ID পেলে পপআপ দেখাও
         showUserDetailsPopup(context, userData);
       } else {
-        // User না পেলে
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Error: User with ID $regId not found."),
@@ -67,7 +61,16 @@ class _AdminPanelState extends State<AdminPanel> {
       }
     }
   }
-  // --- End of New Methods ---
+
+  // --- T-Shirt Report Navigation ---
+  void _navigateToTShirtReport() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const TShirtReportPage()),
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -94,14 +97,14 @@ class _AdminPanelState extends State<AdminPanel> {
         ),
         child: Column(
           children: [
-            // Custom Header with QR Button
+
             _buildCustomHeader(),
 
             _buildFilterBar(),
 
             const SizedBox(height: 10),
 
-            // User List StreamBuilder (Existing Logic)
+
             Expanded(
               child: StreamBuilder(
                 stream: fs.getUsers(),
@@ -115,6 +118,7 @@ class _AdminPanelState extends State<AdminPanel> {
                     final data = doc.data() as Map<String, dynamic>;
                     final status = data['payment']?['status'] ?? 'pending';
                     if (_selectedFilter == "All") return true;
+
                     return status.toLowerCase() == _selectedFilter.toLowerCase();
                   }).toList();
 
@@ -153,7 +157,6 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
-  // --- WIDGETS ---
 
   Widget _buildCustomHeader() {
     return SafeArea(
@@ -169,47 +172,77 @@ class _AdminPanelState extends State<AdminPanel> {
                 Text(
                   "Admin Dashboard",
                   style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
                     color: Colors.blueGrey.shade900,
                     letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 3),
                 Text(
-                  "Manage user verifications",
+                  "Manage all user verifications",
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.blueGrey.shade400,
+                    color: Colors.blueGrey.shade500,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
+
+
+            Row(
+              children: [
+
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.qr_code_2_rounded),
-                color: Colors.blueAccent,
-                onPressed: _scanQRCode, // <--- QR Scan Function Call
-              ),
+                  child: IconButton(
+                    icon: const Icon(Icons.assessment_outlined),
+                    color: Colors.purple.shade600,
+                    onPressed: _navigateToTShirtReport,
+                  ),
+                ),
+                const SizedBox(width: 15),
+
+
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.qr_code_2_outlined),
+                    color: Colors.blueAccent,
+                    onPressed: _scanQRCode,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
+  // --------------------------------------------------------------------
 
+  // <--- ফিল্টার বার ডিজাইন: একটু উজ্জ্বল এবং স্পষ্ট --->
   Widget _buildFilterBar() {
     final filters = ["All", "Verifying", "Completed", "Pending", "Failed"];
 
@@ -220,7 +253,7 @@ class _AdminPanelState extends State<AdminPanel> {
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
         itemCount: filters.length,
-        separatorBuilder: (c, i) => const SizedBox(width: 15),
+        separatorBuilder: (c, i) => const SizedBox(width: 12), // Spacing reduced slightly
         itemBuilder: (context, index) {
           final filterName = filters[index];
           final isSelected = _selectedFilter == filterName;
@@ -234,7 +267,7 @@ class _AdminPanelState extends State<AdminPanel> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? const LinearGradient(
@@ -244,7 +277,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 )
                     : null,
                 color: isSelected ? null : Colors.white,
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(15), // Rounded corners increased
                 boxShadow: isSelected
                     ? [
                   BoxShadow(
@@ -256,8 +289,8 @@ class _AdminPanelState extends State<AdminPanel> {
                     : [
                   BoxShadow(
                     color: Colors.grey.shade200,
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   )
                 ],
               ),
@@ -265,8 +298,8 @@ class _AdminPanelState extends State<AdminPanel> {
                 child: Text(
                   filterName,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey.shade600,
-                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                    fontWeight: FontWeight.w700,
                     fontSize: 14,
                   ),
                 ),
@@ -277,6 +310,7 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
     );
   }
+  // --------------------------------------------------------------------
 
   Widget _buildEmptyState() {
     return Center(
