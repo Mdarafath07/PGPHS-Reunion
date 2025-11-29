@@ -1,11 +1,9 @@
 
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
   final payment = data['payment'] ?? {};
-
   final tShirtSize = data['tShirtSize'] ?? 'N/A';
 
   showModalBottomSheet(
@@ -18,6 +16,7 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (_, controller) {
+
           return Container(
             decoration: const BoxDecoration(
               color: Color(0xFFF8FAFC),
@@ -25,7 +24,6 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
             ),
             child: Column(
               children: [
-
                 Center(
                   child: Container(
                     margin: const EdgeInsets.only(top: 15, bottom: 10),
@@ -37,47 +35,59 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
                     ),
                   ),
                 ),
-
                 Expanded(
                   child: ListView(
                     controller: controller,
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
                     children: [
-
                       _buildProfileHeader(data),
-
                       const SizedBox(height: 25),
-
-
                       _buildSectionHeader("Personal Information", Icons.person_outline),
                       _buildInfoCard([
-                        _buildRow(Icons.badge, "Reg ID", data['reg_id']),
+                        // Calling _buildRow and passing the context
+                        _buildRow(context, Icons.badge, "Reg ID", data['reg_id']),
                         _buildDivider(),
-
-                        _buildRow(Icons.checkroom, "T-Shirt Size", tShirtSize),
+                        _buildRow(context, Icons.checkroom, "T-Shirt Size", tShirtSize),
                         _buildDivider(),
-
-                        _buildRow(Icons.phone, "Phone", data['phone']),
-                        _buildRow(Icons.email, "Email", data['email']),
-                        _buildRow(Icons.location_on, "Address", data['address']),
-                        _buildRow(Icons.work, "Occupation", data['occupation']),
-                        _buildRow(Icons.school, "Graduation", data['graduationYear']),
+                        _buildRow(context, Icons.phone, "Phone", data['phone']),
+                        _buildDivider(),
+                        _buildRow(context, Icons.email, "Email", data['email']),
+                        _buildDivider(),
+                        _buildRow(context, Icons.location_on, "Address", data['address']),
                       ]),
-
                       const SizedBox(height: 25),
-
-
                       _buildSectionHeader("Payment Details", Icons.payment),
                       _buildInfoCard([
-                        _buildStatusRow(payment['status'] ?? 'pending'),
+                        _buildStatusRow(payment['status'] ?? 'unpaid', payment),
                         _buildDivider(),
-                        _buildRow(Icons.attach_money, "Amount", "${payment['amount'] ?? 0} BDT"),
-                        _buildRow(Icons.account_balance_wallet, "Method", payment['paymentMethod']),
-                        _buildRow(Icons.numbers, "Pay Number", payment['paymentNumber'], canCopy: true, context: context),
-                        _buildRow(Icons.receipt_long, "Trx ID", payment['transactionId'], canCopy: true, context: context),
-                        _buildRow(Icons.calendar_today, "Date", payment['paidAt']),
+                        // Calling _buildRow and passing the context
+                        _buildRow(context, Icons.attach_money, "Amount", "${payment['amount'] ?? 0} BDT"),
+                        _buildDivider(),
+                        _buildRow(context, Icons.receipt, "Transaction ID", payment['tranId'], canCopy: true),
+                        _buildDivider(),
+                        _buildRow(context, Icons.info_outline, "Payment Method", payment['paymentMethod']),
+                        _buildDivider(),
+                        _buildRow(context, Icons.payment, "Payer Phone", payment['payerPhone'], canCopy: true),
                       ]),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 25),
+                      if (data['photo'] != null && (data['photo'] as String).isNotEmpty)
+                        _buildSectionHeader("Photo & Documents", Icons.image_outlined),
+                      if (data['photo'] != null && (data['photo'] as String).isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Image.network(
+                              data['photo'],
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                height: 200,
+                                color: Colors.grey.shade200,
+                                child: const Center(child: Text("Image not available")),
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -90,21 +100,16 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
   );
 }
 
-
 Widget _buildProfileHeader(Map<String, dynamic> data) {
   return Column(
     children: [
-      Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.blueAccent.withOpacity(0.2), width: 3),
-        ),
-        child: CircleAvatar(
-          radius: 50,
-          backgroundImage: NetworkImage(data['photo'] ?? ''),
-          backgroundColor: Colors.grey.shade200,
-        ),
+      CircleAvatar(
+        radius: 40,
+        backgroundImage: NetworkImage(data['photo'] ?? ''),
+        backgroundColor: Colors.grey.shade300,
+        child: data['photo'] == null || (data['photo'] as String).isEmpty
+            ? const Icon(Icons.person, size: 40, color: Colors.white)
+            : null,
       ),
       const SizedBox(height: 15),
       Text(
@@ -129,14 +134,14 @@ Widget _buildSectionHeader(String title, IconData icon) {
     padding: const EdgeInsets.only(bottom: 10, left: 5),
     child: Row(
       children: [
-        Icon(icon, size: 20, color: Colors.blueAccent),
+        Icon(icon, color: Colors.blueGrey.shade600, size: 20),
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            fontWeight: FontWeight.w700,
+            color: Colors.blueGrey.shade800,
           ),
         ),
       ],
@@ -146,72 +151,98 @@ Widget _buildSectionHeader(String title, IconData icon) {
 
 Widget _buildInfoCard(List<Widget> children) {
   return Container(
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(15),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(15),
       boxShadow: [
         BoxShadow(
-          color: Colors.grey.withOpacity(0.05),
+          color: Colors.grey.withOpacity(0.08),
           blurRadius: 10,
           offset: const Offset(0, 5),
         ),
       ],
     ),
-    child: Column(children: children),
+    child: Column(
+      children: children,
+    ),
   );
 }
 
-Widget _buildRow(IconData icon, String label, String? value, {bool canCopy = false, BuildContext? context}) {
+
+Widget _buildRow(BuildContext context, IconData icon, String label, String? value, {bool canCopy = false}) {
+  value = value ?? 'N/A';
   return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(vertical: 8.0),
     child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 18, color: Colors.grey.shade600),
-        ),
-        const SizedBox(width: 15),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+        Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.blueGrey.shade400),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.blueGrey.shade700,
+                fontWeight: FontWeight.w500,
               ),
-              Text(
-                value ?? 'N/A',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+            ),
+          ],
+        ),
+        Flexible(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
+
+              if (canCopy && value != 'N/A' && value.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 18, color: Colors.blueAccent),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: value!));
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("$label copied!"), duration: const Duration(seconds: 1)),
+                    );
+                  },
+                )
             ],
           ),
         ),
-        if (canCopy && value != null && context != null)
-          IconButton(
-            icon: const Icon(Icons.copy, size: 18, color: Colors.blueAccent),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: value));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("$label copied!"), duration: const Duration(seconds: 1)),
-              );
-            },
-          )
       ],
     ),
   );
 }
 
-Widget _buildStatusRow(String status) {
-  Color color = status == "completed" ? Colors.green : status == "failed" ? Colors.red : Colors.orange;
+
+Widget _buildStatusRow(String status, Map<String, dynamic> payment) {
+  Color color;
+  String displayStatus = status.toUpperCase();
+
+  final isCancelled = payment['isCancelled'] ?? false;
+  final lowerStatus = status.toLowerCase();
+
+  if (lowerStatus == "paid") {
+    color = Colors.green;
+  } else if (lowerStatus == "verifying") {
+    color = Colors.blue;
+  } else if (lowerStatus == "unpaid" && isCancelled) {
+    color = Colors.red;
+    displayStatus = "CANCELLED";
+  } else {
+    color = Colors.orange;
+  }
+
   return Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
@@ -223,7 +254,7 @@ Widget _buildStatusRow(String status) {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          status.toUpperCase(),
+          displayStatus,
           style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
         ),
       )
@@ -233,7 +264,11 @@ Widget _buildStatusRow(String status) {
 
 Widget _buildDivider() {
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Divider(color: Colors.grey.shade100, thickness: 1.5),
+    padding: const EdgeInsets.symmetric(vertical: 0.0),
+    child: Divider(
+      color: Colors.grey.shade200,
+      height: 1,
+      thickness: 1,
+    ),
   );
 }

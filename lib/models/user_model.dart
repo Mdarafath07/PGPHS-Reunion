@@ -1,4 +1,4 @@
-// user_model.dart
+
 
 class UserModel {
   final String fullName;
@@ -6,6 +6,7 @@ class UserModel {
   final String image;
   final String status;
   final String tShirtSize;
+  final bool isCancelled;
 
   UserModel({
     required this.fullName,
@@ -13,6 +14,7 @@ class UserModel {
     required this.image,
     required this.status,
     required this.tShirtSize,
+    required this.isCancelled,
   });
 
   factory UserModel.fromDoc(Map<String, dynamic> data) {
@@ -22,6 +24,7 @@ class UserModel {
       image: data['photo'] ?? '',
       status: data['payment']['status'] ?? '',
       tShirtSize: data['tShirtSize'] ?? 'N/A',
+      isCancelled: data['isCancelled'] ?? false,
     );
   }
 }

@@ -1,4 +1,4 @@
-
+// admin_panel.dart
 
 import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
@@ -16,12 +16,13 @@ class AdminPanel extends StatefulWidget {
 
 class _AdminPanelState extends State<AdminPanel> {
   final FirebaseService fs = FirebaseService();
+
+  // ডিফল্ট ফিল্টার 'All' রাখলাম
   String _selectedFilter = "All";
 
   Future<Map<String, dynamic>?> _fetchUserByRegId(String regId) async {
     try {
       final currentDocs = await fs.getUsers().first;
-
       for (var doc in currentDocs.docs) {
         final data = doc.data() as Map<String, dynamic>;
         if (data['reg_id']?.toUpperCase() == regId.toUpperCase()) {
@@ -36,7 +37,6 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 
   void _scanQRCode() async {
-
     final regId = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (context) => const QrScannerPage()),
@@ -62,7 +62,6 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
-  // --- T-Shirt Report Navigation ---
   void _navigateToTShirtReport() {
     Navigator.push(
       context,
@@ -70,20 +69,16 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: const Color(0xffF8F9FD),
-
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: 0,
       ),
-
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -97,14 +92,9 @@ class _AdminPanelState extends State<AdminPanel> {
         ),
         child: Column(
           children: [
-
             _buildCustomHeader(),
-
             _buildFilterBar(),
-
             const SizedBox(height: 10),
-
-
             Expanded(
               child: StreamBuilder(
                 stream: fs.getUsers(),
@@ -113,14 +103,60 @@ class _AdminPanelState extends State<AdminPanel> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final docs = snapshot.data!.docs;
+                  // 1. ডাটাগুলোকে প্রথমে মডিফাই করার যোগ্য লিস্টে নেওয়া হলো
+                  final docs = snapshot.data!.docs.toList();
+
+                  // 2. Sorting Logic: Latest Time (Descending) সবার উপরে থাকবে
+                  docs.sort((a, b) {
+                    final dataA = a.data() as Map<String, dynamic>;
+                    final dataB = b.data() as Map<String, dynamic>;
+
+                    // regAt অথবা payment.paidAt দিয়ে সর্ট করা হবে
+                    final timeA = dataA['regAt'] ?? dataA['payment']?['paidAt'] ?? '';
+                    final timeB = dataB['regAt'] ?? dataB['payment']?['paidAt'] ?? '';
+
+                    // ডিসেন্ডিং অর্ডার (বড় থেকে ছোট)
+                    return timeB.compareTo(timeA);
+                  });
+
+                  // --- ফিল্টারিং লজিক (সর্টেড লিস্টের উপর) ---
                   final filteredDocs = docs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final status = data['payment']?['status'] ?? 'pending';
+                    final payment = data['payment'] ?? {}; // payment ম্যাপ নেওয়া হলো
+
+                    final status = payment['status'] ?? 'unpaid';
+                    // isCancelled চেক করা হচ্ছে payment ম্যাপের ভেতর থেকে
+                    final isCancelled = payment['isCancelled'] ?? false;
+
                     if (_selectedFilter == "All") return true;
 
-                    return status.toLowerCase() == _selectedFilter.toLowerCase();
+                    // Lowercase এ চেক করা হচ্ছে যাতে 'unpaid' ও 'unPaid' দুটোই ধরা যায়
+                    final lowerStatus = status.toLowerCase();
+
+                    // 1. Verifying Tab
+                    if (_selectedFilter == "Verifying") {
+                      return lowerStatus == "verifying";
+                    }
+
+                    // 2. Paid Tab
+                    if (_selectedFilter == "Paid") {
+                      return lowerStatus == "paid";
+                    }
+
+                    // 3. Cancelled Tab (যাদের এডমিন ম্যানুয়ালি রিজেক্ট করেছে)
+                    if (_selectedFilter == "Cancelled") {
+                      return isCancelled == true;
+                    }
+
+                    // 4. Unpaid Tab (যারা এখনো পেমেন্ট করেনি, কিন্তু রিজেক্টেডও না)
+                    if (_selectedFilter == "Unpaid") {
+                      // isCancelled: false নিশ্চিত করবে যে এটি Cancelled ট্যাবে চলে যায়নি
+                      return lowerStatus == "unpaid" && isCancelled == false;
+                    }
+
+                    return false;
                   }).toList();
+                  // -------------------------
 
                   if (filteredDocs.isEmpty) {
                     return _buildEmptyState();
@@ -131,7 +167,19 @@ class _AdminPanelState extends State<AdminPanel> {
                     itemCount: filteredDocs.length,
                     itemBuilder: (context, index) {
                       var data = filteredDocs[index].data() as Map<String, dynamic>;
+                      final payment = data['payment'] ?? {};
                       final userId = filteredDocs[index].id;
+
+                      // isCancelled চেক করা হচ্ছে payment ম্যাপ থেকে
+                      final isCancelledFromPayment = payment['isCancelled'] ?? false;
+
+                      // --- সময় নির্ধারণ করা হয়েছে: paidAt or regAt ---
+                      final timestamp = payment['paidAt'] ?? data['regAt'];
+
+                      String displayStatus = payment['status'] ?? 'unpaid';
+
+                      // UserCard এর switch case লজিক lowercase স্ট্যাটাস দিয়ে কাজ করে
+                      String cardStatus = displayStatus.toLowerCase();
 
                       return InkWell(
                         onTap: () => showUserDetailsPopup(context, data),
@@ -141,9 +189,12 @@ class _AdminPanelState extends State<AdminPanel> {
                           name: data['fullName'] ?? 'No Name',
                           phone: data['phone'] ?? 'No Phone',
                           image: data['photo'] ?? '',
-                          status: data['payment']?['status'] ?? 'pending',
-                          onAccept: () => fs.updateStatus(userId, "completed"),
-                          onReject: () => fs.updateStatus(userId, "failed"),
+                          status: cardStatus, // <--- lowercase status পাঠানো হলো
+                          isCancelled: isCancelledFromPayment, // <--- isCancelled পাঠানো হলো
+                          time: timestamp, // <--- UserCard এ সময় পাঠানো হলো
+                          // রিজেক্ট/ক্যানসেল করলে "unpaid" (FirebaseService এ "unPaid" হবে)
+                          onAccept: () => fs.updateStatus(userId, "paid"),
+                          onReject: () => fs.updateStatus(userId, "unpaid"),
                         ),
                       );
                     },
@@ -156,7 +207,6 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
     );
   }
-
 
   Widget _buildCustomHeader() {
     return SafeArea(
@@ -189,11 +239,8 @@ class _AdminPanelState extends State<AdminPanel> {
                 ),
               ],
             ),
-
-
             Row(
               children: [
-
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -213,8 +260,6 @@ class _AdminPanelState extends State<AdminPanel> {
                   ),
                 ),
                 const SizedBox(width: 15),
-
-
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -240,11 +285,9 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
     );
   }
-  // --------------------------------------------------------------------
 
-  // <--- ফিল্টার বার ডিজাইন: একটু উজ্জ্বল এবং স্পষ্ট --->
   Widget _buildFilterBar() {
-    final filters = ["All", "Verifying", "Completed", "Pending", "Failed"];
+    final filters = ["All", "Verifying", "Paid", "Unpaid", "Cancelled"];
 
     return SizedBox(
       height: 65,
@@ -253,7 +296,7 @@ class _AdminPanelState extends State<AdminPanel> {
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
         itemCount: filters.length,
-        separatorBuilder: (c, i) => const SizedBox(width: 12), // Spacing reduced slightly
+        separatorBuilder: (c, i) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final filterName = filters[index];
           final isSelected = _selectedFilter == filterName;
@@ -277,7 +320,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 )
                     : null,
                 color: isSelected ? null : Colors.white,
-                borderRadius: BorderRadius.circular(15), // Rounded corners increased
+                borderRadius: BorderRadius.circular(15),
                 boxShadow: isSelected
                     ? [
                   BoxShadow(
@@ -310,7 +353,6 @@ class _AdminPanelState extends State<AdminPanel> {
       ),
     );
   }
-  // --------------------------------------------------------------------
 
   Widget _buildEmptyState() {
     return Center(

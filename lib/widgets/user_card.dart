@@ -1,3 +1,5 @@
+
+
 import 'package:flutter/material.dart';
 import '../widgets/confirmation_dialog.dart';
 import '../widgets/long_press_animation.dart';
@@ -7,8 +9,10 @@ class UserCard extends StatelessWidget {
   final String phone;
   final String image;
   final String status;
+  final bool isCancelled;
   final VoidCallback onAccept;
   final VoidCallback onReject;
+  final String? time;
 
   const UserCard({
     super.key,
@@ -18,43 +22,66 @@ class UserCard extends StatelessWidget {
     required this.status,
     required this.onAccept,
     required this.onReject,
+    required this.isCancelled,
+    this.time,
   });
+
+  String _formatCompactBDTime(String? timestamp) {
+    if (timestamp == null || timestamp.isEmpty) return '';
+    try {
+      DateTime dt = DateTime.parse(timestamp).toUtc().add(const Duration(hours: 6));
+
+
+      const List<String> shortMonths = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      String monthName = shortMonths[dt.month - 1];
+
+      String day = dt.day.toString();
+
+      int hourVal = dt.hour;
+      String period = hourVal >= 12 ? "PM" : "AM";
+      hourVal = hourVal > 12 ? hourVal - 12 : (hourVal == 0 ? 12 : hourVal);
+      String minute = dt.minute.toString().padLeft(2, '0');
+
+      return "$day $monthName, $hourVal:$minute $period";
+    } catch (e) {
+      return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-
     Color themeColor;
     Color lightBgColor;
     IconData statusIcon;
 
-    switch (status) {
-      case "completed":
-        themeColor = const Color(0xFF00C853);
-        lightBgColor = const Color(0xFFE8F5E9);
-        statusIcon = Icons.verified_rounded;
-        break;
-      case "failed":
-        themeColor = const Color(0xFFD32F2F);
-        lightBgColor = const Color(0xFFFFEBEE);
-        statusIcon = Icons.error_outline_rounded;
-        break;
-      case "verifying":
-        themeColor = const Color(0xFF1976D2);
-        lightBgColor = const Color(0xFFE3F2FD);
-        statusIcon = Icons.hourglass_top_rounded;
-        break;
-      default:
-        themeColor = Colors.orange;
-        lightBgColor = const Color(0xFFFFF3E0);
-        statusIcon = Icons.access_time_rounded;
+
+    if (status == "paid") {
+      themeColor = const Color(0xFF00C853);
+      lightBgColor = const Color(0xFFE8F5E9);
+      statusIcon = Icons.verified_rounded;
+    } else if (status == "verifying") {
+      themeColor = const Color(0xFF1976D2);
+      lightBgColor = const Color(0xFFE3F2FD);
+      statusIcon = Icons.hourglass_top_rounded;
+    } else if (status == "unpaid" && isCancelled) {
+      themeColor = const Color(0xFFD32F2F);
+      lightBgColor = const Color(0xFFFFEBEE);
+      statusIcon = Icons.cancel_outlined;
+    } else {
+      themeColor = Colors.orange;
+      lightBgColor = const Color(0xFFFFF3E0);
+      statusIcon = Icons.access_time_rounded;
     }
 
-    bool isVip = status == "completed";
+
+    bool isVip = status == "paid";
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
       decoration: BoxDecoration(
-
         gradient: isVip
             ? const LinearGradient(
           colors: [Color(0xFFE8F5E9), Color(0xFFF1F8E9)],
@@ -66,7 +93,6 @@ class UserCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-
             color: isVip ? Colors.green.withOpacity(0.3) : Colors.transparent,
             width: 1.5
         ),
@@ -84,7 +110,7 @@ class UserCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // --- Avatar Section with Ring ---
+
               Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
@@ -100,7 +126,6 @@ class UserCard extends StatelessWidget {
 
               const SizedBox(width: 16),
 
-              // --- Info Section ---
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,9 +158,30 @@ class UserCard extends StatelessWidget {
                       ),
                     ),
 
+
+                    if (time != null && time!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.access_time, size: 11, color: Colors.blueGrey.shade400),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatCompactBDTime(time),
+                              style: TextStyle(
+                                color: Colors.blueGrey.shade400,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+
                     const SizedBox(height: 8),
 
-                    // --- Status Chip ---
+
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -144,7 +190,8 @@ class UserCard extends StatelessWidget {
                         border: isVip ? Border.all(color: Colors.green.shade100) : null,
                       ),
                       child: Text(
-                        status.toUpperCase(),
+
+                        (status == "unpaid" && isCancelled) ? "CANCELLED" : status.toUpperCase(),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -157,7 +204,6 @@ class UserCard extends StatelessWidget {
                 ),
               ),
 
-              // --- Action Buttons (Only for Verifying) ---
               if (status == "verifying")
                 Row(
                   children: [
@@ -169,7 +215,7 @@ class UserCard extends StatelessWidget {
                         final confirm = await showConfirmDialog(
                           context,
                           "Reject?",
-                          "Mark as failed?",
+                          "Mark as Unpaid (Cancelled)?",
                         );
                         if (confirm == true) showLongPressAnimation(context, onReject);
                       },
