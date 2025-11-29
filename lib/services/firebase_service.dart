@@ -1,5 +1,3 @@
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirebaseService {
@@ -39,11 +37,15 @@ class FirebaseService {
       return FirebaseFirestore.instance.runTransaction((transaction) async {
 
         final counterSnapshot = await transaction.get(counterRef);
-        int nextNumber = 1;
+
+        int nextNumber = 0;
 
         if (counterSnapshot.exists) {
-          nextNumber = (counterSnapshot.data() as Map<String, dynamic>)?['next_reg_number'] as int? ?? 1;
+          nextNumber = (counterSnapshot.data() as Map<String, dynamic>)?['current'] as int? ?? 0;
         }
+
+
+        nextNumber = nextNumber + 1;
 
 
         final newRegId = 'PGPHS-${nextNumber.toString().padLeft(4, '0')}';
@@ -55,10 +57,11 @@ class FirebaseService {
         });
 
 
+
         transaction.set(
           counterRef,
           {
-            "next_reg_number": nextNumber + 1,
+            "current": nextNumber,
           },
           SetOptions(merge: true),
         );
