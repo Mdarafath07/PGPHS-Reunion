@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,7 +15,6 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (_, controller) {
-
           return Container(
             decoration: const BoxDecoration(
               color: Color(0xFFF8FAFC),
@@ -42,18 +40,43 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
                     children: [
                       _buildProfileHeader(data),
                       const SizedBox(height: 25),
-                      _buildSectionHeader("Personal Information", Icons.person_outline),
+                      _buildSectionHeader(
+                        "Personal Information",
+                        Icons.person_outline,
+                      ),
                       _buildInfoCard([
                         // Calling _buildRow and passing the context
-                        _buildRow(context, Icons.badge, "Reg ID", data['reg_id']),
+                        _buildRow(
+                          context,
+                          Icons.badge,
+                          "Reg ID",
+                          data['reg_id'],
+                        ),
                         _buildDivider(),
-                        _buildRow(context, Icons.checkroom, "T-Shirt Size", tShirtSize),
+                        _buildRow(
+                          context,
+                          Icons.sensor_occupied_rounded,
+                          "Occupation",
+                          data['occupation'],
+                        ),
+                        _buildDivider(),
+                        _buildRow(
+                          context,
+                          Icons.checkroom,
+                          "T-Shirt Size",
+                          tShirtSize,
+                        ),
                         _buildDivider(),
                         _buildRow(context, Icons.phone, "Phone", data['phone']),
                         _buildDivider(),
                         _buildRow(context, Icons.email, "Email", data['email']),
                         _buildDivider(),
-                        _buildRow(context, Icons.location_on, "Address", data['address']),
+                        _buildRow(
+                          context,
+                          Icons.location_on,
+                          "Address",
+                          data['address'],
+                        ),
                       ]),
                       const SizedBox(height: 25),
                       _buildSectionHeader("Payment Details", Icons.payment),
@@ -61,18 +84,45 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
                         _buildStatusRow(payment['status'] ?? 'unpaid', payment),
                         _buildDivider(),
                         // Calling _buildRow and passing the context
-                        _buildRow(context, Icons.attach_money, "Amount", "${payment['amount'] ?? 0} BDT"),
+                        _buildRow(
+                          context,
+                          Icons.attach_money,
+                          "Amount",
+                          "${payment['amount'] ?? 0} BDT",
+                        ),
                         _buildDivider(),
-                        _buildRow(context, Icons.receipt, "Transaction ID", payment['tranId'], canCopy: true),
+                        _buildRow(
+                          context,
+                          Icons.receipt,
+                          "Transaction ID",
+                          payment['transactionId'],
+                          canCopy: true,
+                        ),
                         _buildDivider(),
-                        _buildRow(context, Icons.info_outline, "Payment Method", payment['paymentMethod']),
+                        _buildRow(
+                          context,
+                          Icons.info_outline,
+                          "Payment Method",
+                          payment['paymentMethod'],
+                        ),
                         _buildDivider(),
-                        _buildRow(context, Icons.payment, "Payer Phone", payment['payerPhone'], canCopy: true),
+                        _buildRow(
+                          context,
+                          Icons.payment,
+                          "Payer Phone",
+                          payment['paymentNumber'],
+                          canCopy: true,
+                        ),
                       ]),
                       const SizedBox(height: 25),
-                      if (data['photo'] != null && (data['photo'] as String).isNotEmpty)
-                        _buildSectionHeader("Photo & Documents", Icons.image_outlined),
-                      if (data['photo'] != null && (data['photo'] as String).isNotEmpty)
+                      if (data['photo'] != null &&
+                          (data['photo'] as String).isNotEmpty)
+                        _buildSectionHeader(
+                          "Photo & Documents",
+                          Icons.image_outlined,
+                        ),
+                      if (data['photo'] != null &&
+                          (data['photo'] as String).isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: ClipRRect(
@@ -80,11 +130,14 @@ void showUserDetailsPopup(BuildContext context, Map<String, dynamic> data) {
                             child: Image.network(
                               data['photo'],
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                height: 200,
-                                color: Colors.grey.shade200,
-                                child: const Center(child: Text("Image not available")),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    height: 200,
+                                    color: Colors.grey.shade200,
+                                    child: const Center(
+                                      child: Text("Image not available"),
+                                    ),
+                                  ),
                             ),
                           ),
                         ),
@@ -163,14 +216,17 @@ Widget _buildInfoCard(List<Widget> children) {
         ),
       ],
     ),
-    child: Column(
-      children: children,
-    ),
+    child: Column(children: children),
   );
 }
 
-
-Widget _buildRow(BuildContext context, IconData icon, String label, String? value, {bool canCopy = false}) {
+Widget _buildRow(
+  BuildContext context,
+  IconData icon,
+  String label,
+  String? value, {
+  bool canCopy = false,
+}) {
   value = value ?? 'N/A';
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -207,15 +263,22 @@ Widget _buildRow(BuildContext context, IconData icon, String label, String? valu
 
               if (canCopy && value != 'N/A' && value.isNotEmpty)
                 IconButton(
-                  icon: const Icon(Icons.copy, size: 18, color: Colors.blueAccent),
+                  icon: const Icon(
+                    Icons.copy,
+                    size: 18,
+                    color: Colors.blueAccent,
+                  ),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: value!));
 
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("$label copied!"), duration: const Duration(seconds: 1)),
+                      SnackBar(
+                        content: Text("$label copied!"),
+                        duration: const Duration(seconds: 1),
+                      ),
                     );
                   },
-                )
+                ),
             ],
           ),
         ),
@@ -223,7 +286,6 @@ Widget _buildRow(BuildContext context, IconData icon, String label, String? valu
     ),
   );
 }
-
 
 Widget _buildStatusRow(String status, Map<String, dynamic> payment) {
   Color color;
@@ -255,9 +317,13 @@ Widget _buildStatusRow(String status, Map<String, dynamic> payment) {
         ),
         child: Text(
           displayStatus,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
         ),
-      )
+      ),
     ],
   );
 }
@@ -265,10 +331,6 @@ Widget _buildStatusRow(String status, Map<String, dynamic> payment) {
 Widget _buildDivider() {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 0.0),
-    child: Divider(
-      color: Colors.grey.shade200,
-      height: 1,
-      thickness: 1,
-    ),
+    child: Divider(color: Colors.grey.shade200, height: 1, thickness: 1),
   );
 }

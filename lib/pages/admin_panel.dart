@@ -1,9 +1,11 @@
-// admin_panel.dart
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pgphs_reunion/widgets/confirmation_dialog.dart';
 import '../services/firebase_service.dart';
 import '../widgets/user_card.dart';
 import '../widgets/user_details_popup.dart';
+import '../widgets/long_press_animation.dart';
+import '../widgets/action_dialogs.dart';
 import 'qr_scanner_page.dart';
 import 'tshirt_report_page.dart';
 
@@ -16,9 +18,11 @@ class AdminPanel extends StatefulWidget {
 
 class _AdminPanelState extends State<AdminPanel> {
   final FirebaseService fs = FirebaseService();
-
-  // ডিফল্ট ফিল্টার 'All' রাখলাম
   String _selectedFilter = "All";
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+  bool _isSearching = false;
+  List<QueryDocumentSnapshot> _allUsers = [];
 
   Future<Map<String, dynamic>?> _fetchUserByRegId(String regId) async {
     try {
@@ -43,21 +47,24 @@ class _AdminPanelState extends State<AdminPanel> {
     );
 
     if (regId != null && regId.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Searching for User ID: $regId")),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Searching for User ID: $regId")));
 
       final userData = await _fetchUserByRegId(regId);
 
-      if (userData != null) {
-        showUserDetailsPopup(context, userData);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: User with ID $regId not found."),
-            backgroundColor: Colors.red.shade400,
-          ),
-        );
+      if (mounted) {
+        if (userData != null) {
+          showUserDetailsPopup(context, userData);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Error: User with ID $regId not found."),
+              backgroundColor: Colors.red.shade400,
+            ),
+          );
+        }
       }
     }
   }
@@ -67,6 +74,27 @@ class _AdminPanelState extends State<AdminPanel> {
       context,
       MaterialPageRoute(builder: (context) => const TShirtReportPage()),
     );
+  }
+
+  // Search function
+  List<QueryDocumentSnapshot> _searchUsers(List<QueryDocumentSnapshot> users) {
+    if (_searchQuery.isEmpty) return users;
+
+    final query = _searchQuery.toLowerCase();
+    return users.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+
+      // Search in multiple fields
+      final name = data['fullName']?.toString().toLowerCase() ?? '';
+      final phone = data['phone']?.toString().toLowerCase() ?? '';
+      final regId = data['reg_id']?.toString().toLowerCase() ?? '';
+      final email = data['email']?.toString().toLowerCase() ?? '';
+
+      return name.contains(query) ||
+          phone.contains(query) ||
+          regId.contains(query) ||
+          email.contains(query);
+    }).toList();
   }
 
   @override
@@ -84,15 +112,13 @@ class _AdminPanelState extends State<AdminPanel> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFEBF4FF),
-              Color(0xFFF8F9FD),
-            ],
+            colors: [Color(0xFFEBF4FF), Color(0xFFF8F9FD)],
           ),
         ),
         child: Column(
           children: [
             _buildCustomHeader(),
+            _buildSearchBar(),
             _buildFilterBar(),
             const SizedBox(height: 10),
             Expanded(
@@ -103,60 +129,44 @@ class _AdminPanelState extends State<AdminPanel> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // 1. ডাটাগুলোকে প্রথমে মডিফাই করার যোগ্য লিস্টে নেওয়া হলো
-                  final docs = snapshot.data!.docs.toList();
+                  // Store all users
+                  _allUsers = snapshot.data!.docs.toList();
 
-                  // 2. Sorting Logic: Latest Time (Descending) সবার উপরে থাকবে
-                  docs.sort((a, b) {
-                    final dataA = a.data() as Map<String, dynamic>;
-                    final dataB = b.data() as Map<String, dynamic>;
-
-                    // regAt অথবা payment.paidAt দিয়ে সর্ট করা হবে
-                    final timeA = dataA['regAt'] ?? dataA['payment']?['paidAt'] ?? '';
-                    final timeB = dataB['regAt'] ?? dataB['payment']?['paidAt'] ?? '';
-
-                    // ডিসেন্ডিং অর্ডার (বড় থেকে ছোট)
+                  // Apply sorting
+                  _allUsers.sort((a, b) {
+                    final dataA = a?.data() as Map<String, dynamic>;
+                    final dataB = b?.data() as Map<String, dynamic>;
+                    final timeA =
+                        dataA['regAt'] ?? dataA['payment']?['paidAt'] ?? '';
+                    final timeB =
+                        dataB['regAt'] ?? dataB['payment']?['paidAt'] ?? '';
                     return timeB.compareTo(timeA);
                   });
 
-                  // --- ফিল্টারিং লজিক (সর্টেড লিস্টের উপর) ---
-                  final filteredDocs = docs.where((doc) {
+                  // Apply search filter first
+                  List<QueryDocumentSnapshot> searchedUsers = _searchUsers(
+                    _allUsers,
+                  );
+
+                  // Apply status filter
+                  final filteredDocs = searchedUsers.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final payment = data['payment'] ?? {}; // payment ম্যাপ নেওয়া হলো
-
+                    final payment = data['payment'] ?? {};
                     final status = payment['status'] ?? 'unpaid';
-                    // isCancelled চেক করা হচ্ছে payment ম্যাপের ভেতর থেকে
                     final isCancelled = payment['isCancelled'] ?? false;
-
-                    if (_selectedFilter == "All") return true;
-
-                    // Lowercase এ চেক করা হচ্ছে যাতে 'unpaid' ও 'unPaid' দুটোই ধরা যায়
                     final lowerStatus = status.toLowerCase();
 
-                    // 1. Verifying Tab
-                    if (_selectedFilter == "Verifying") {
+                    if (_selectedFilter == "All") return true;
+                    if (_selectedFilter == "Verifying")
                       return lowerStatus == "verifying";
-                    }
-
-                    // 2. Paid Tab
-                    if (_selectedFilter == "Paid") {
-                      return lowerStatus == "paid";
-                    }
-
-                    // 3. Cancelled Tab (যাদের এডমিন ম্যানুয়ালি রিজেক্ট করেছে)
-                    if (_selectedFilter == "Cancelled") {
+                    if (_selectedFilter == "Paid") return lowerStatus == "paid";
+                    if (_selectedFilter == "Cancelled")
                       return isCancelled == true;
-                    }
-
-                    // 4. Unpaid Tab (যারা এখনো পেমেন্ট করেনি, কিন্তু রিজেক্টেডও না)
                     if (_selectedFilter == "Unpaid") {
-                      // isCancelled: false নিশ্চিত করবে যে এটি Cancelled ট্যাবে চলে যায়নি
                       return lowerStatus == "unpaid" && isCancelled == false;
                     }
-
                     return false;
                   }).toList();
-                  // -------------------------
 
                   if (filteredDocs.isEmpty) {
                     return _buildEmptyState();
@@ -166,19 +176,14 @@ class _AdminPanelState extends State<AdminPanel> {
                     padding: const EdgeInsets.only(bottom: 20, top: 10),
                     itemCount: filteredDocs.length,
                     itemBuilder: (context, index) {
-                      var data = filteredDocs[index].data() as Map<String, dynamic>;
+                      var data =
+                          filteredDocs[index].data() as Map<String, dynamic>;
                       final payment = data['payment'] ?? {};
                       final userId = filteredDocs[index].id;
-
-                      // isCancelled চেক করা হচ্ছে payment ম্যাপ থেকে
-                      final isCancelledFromPayment = payment['isCancelled'] ?? false;
-
-                      // --- সময় নির্ধারণ করা হয়েছে: paidAt or regAt ---
+                      final isCancelledFromPayment =
+                          payment['isCancelled'] ?? false;
                       final timestamp = payment['paidAt'] ?? data['regAt'];
-
                       String displayStatus = payment['status'] ?? 'unpaid';
-
-                      // UserCard এর switch case লজিক lowercase স্ট্যাটাস দিয়ে কাজ করে
                       String cardStatus = displayStatus.toLowerCase();
 
                       return InkWell(
@@ -189,12 +194,19 @@ class _AdminPanelState extends State<AdminPanel> {
                           name: data['fullName'] ?? 'No Name',
                           phone: data['phone'] ?? 'No Phone',
                           image: data['photo'] ?? '',
-                          status: cardStatus, // <--- lowercase status পাঠানো হলো
-                          isCancelled: isCancelledFromPayment, // <--- isCancelled পাঠানো হলো
-                          time: timestamp, // <--- UserCard এ সময় পাঠানো হলো
-                          // রিজেক্ট/ক্যানসেল করলে "unpaid" (FirebaseService এ "unPaid" হবে)
-                          onAccept: () => fs.updateStatus(userId, "paid"),
-                          onReject: () => fs.updateStatus(userId, "unpaid"),
+                          status: cardStatus,
+                          isCancelled: isCancelledFromPayment,
+                          time: timestamp,
+
+                          // ON ACCEPT LOGIC
+                          onAccept: () {
+                            _handleUserAccept(userId);
+                          },
+
+                          // ON REJECT LOGIC
+                          onReject: () async {
+                            _handleUserReject(userId);
+                          },
                         ),
                       );
                     },
@@ -208,6 +220,146 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
+  // Search Bar Widget
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                    _isSearching = value.isNotEmpty;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: "Search by name, phone, email or Reg ID...",
+                  hintStyle: TextStyle(color: Colors.grey.shade500),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.blueGrey.shade400,
+                  ),
+                  suffixIcon: _isSearching
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: Colors.blueGrey.shade400,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = "";
+                              _isSearching = false;
+                            });
+                          },
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // User Accept Handler
+  void _handleUserAccept(String userId) {
+    showLongPressAnimation(context, () async {
+      _processUserAccept(userId);
+    });
+  }
+
+  // User Reject Handler
+  Future<void> _handleUserReject(String userId) async {
+    final confirm = await showConfirmDialog(
+      context,
+      "Reject?",
+      "Mark as Unpaid (Cancelled)?",
+    );
+
+    if (confirm == true) {
+      await fs.updateStatus(userId, "unpaid");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("User marked as Unpaid/Cancelled")),
+        );
+      }
+    }
+  }
+
+  // Process User Accept
+  Future<void> _processUserAccept(String userId) async {
+    // Show Processing Dialog
+    showProcessingDialog(context);
+
+    try {
+      // Call Firebase Service
+      final result = await fs.updateStatus(userId, "paid");
+
+      // Close Processing Dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Show Result Dialog
+      if (mounted) {
+        final bool success = result['success'] ?? false;
+        final bool hasWarning = result['warning'] ?? false;
+
+        if (success && hasWarning) {
+          showResultDialog(
+            context: context,
+            isSuccess: true,
+            message: "Payment Verified!",
+            errorDetails: result['message'],
+          );
+        } else {
+          showResultDialog(
+            context: context,
+            isSuccess: success,
+            message: success
+                ? (result['message'] ?? "Verification Successful!")
+                : "Verification Failed",
+            errorDetails: success ? null : result['message'],
+          );
+        }
+      }
+    } catch (e) {
+      // Close Processing Dialog on error
+      if (mounted) {
+        Navigator.pop(context);
+        showResultDialog(
+          context: context,
+          isSuccess: false,
+          message: "Error occurred",
+          errorDetails: e.toString(),
+        );
+      }
+    }
+  }
+
+  // Header Widget
   Widget _buildCustomHeader() {
     return SafeArea(
       bottom: false,
@@ -241,42 +393,16 @@ class _AdminPanelState extends State<AdminPanel> {
             ),
             Row(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.assessment_outlined),
-                    color: Colors.purple.shade600,
-                    onPressed: _navigateToTShirtReport,
-                  ),
+                _buildHeaderIcon(
+                  Icons.assessment_outlined,
+                  Colors.purple.shade600,
+                  _navigateToTShirtReport,
                 ),
                 const SizedBox(width: 15),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.qr_code_2_outlined),
-                    color: Colors.blueAccent,
-                    onPressed: _scanQRCode,
-                  ),
+                _buildHeaderIcon(
+                  Icons.qr_code_2_outlined,
+                  Colors.blueAccent,
+                  _scanQRCode,
                 ),
               ],
             ),
@@ -286,6 +412,24 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
+  Widget _buildHeaderIcon(IconData icon, Color color, VoidCallback onTap) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: IconButton(icon: Icon(icon), color: color, onPressed: onTap),
+    );
+  }
+
+  // Filter Bar Widget
   Widget _buildFilterBar() {
     final filters = ["All", "Verifying", "Paid", "Unpaid", "Cancelled"];
 
@@ -314,28 +458,28 @@ class _AdminPanelState extends State<AdminPanel> {
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? const LinearGradient(
-                  colors: [Color(0xFF4481EB), Color(0xFF04BEFE)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
+                        colors: [Color(0xFF4481EB), Color(0xFF04BEFE)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
                     : null,
                 color: isSelected ? null : Colors.white,
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: isSelected
                     ? [
-                  BoxShadow(
-                    color: const Color(0xFF4481EB).withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  )
-                ]
+                        BoxShadow(
+                          color: const Color(0xFF4481EB).withOpacity(0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
                     : [
-                  BoxShadow(
-                    color: Colors.grey.shade200,
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  )
-                ],
+                        BoxShadow(
+                          color: Colors.grey.shade200,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
               ),
               child: Center(
                 child: Text(
@@ -354,6 +498,7 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
+  // Empty State Widget
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -365,20 +510,26 @@ class _AdminPanelState extends State<AdminPanel> {
               color: Colors.blue.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.filter_alt_off_outlined, size: 50, color: Colors.blue.shade300),
+            child: Icon(
+              _isSearching ? Icons.search_off : Icons.filter_alt_off_outlined,
+              size: 50,
+              color: Colors.blue.shade300,
+            ),
           ),
           const SizedBox(height: 20),
           Text(
-            "No users found",
+            _isSearching ? "No results found" : "No users found",
             style: TextStyle(
-                color: Colors.blueGrey.shade800,
-                fontSize: 18,
-                fontWeight: FontWeight.bold
+              color: Colors.blueGrey.shade800,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 5),
           Text(
-            "There are no users in '$_selectedFilter' list.",
+            _isSearching
+                ? "Try searching with different keywords"
+                : "There are no users in '$_selectedFilter' list.",
             style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 14),
           ),
         ],

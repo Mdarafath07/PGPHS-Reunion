@@ -1,8 +1,5 @@
-
-
 import 'package:flutter/material.dart';
-import '../widgets/confirmation_dialog.dart';
-import '../widgets/long_press_animation.dart';
+import 'package:pgphs_reunion/widgets/confirmation_dialog.dart';
 
 class UserCard extends StatelessWidget {
   final String name;
@@ -29,8 +26,8 @@ class UserCard extends StatelessWidget {
   String _formatCompactBDTime(String? timestamp) {
     if (timestamp == null || timestamp.isEmpty) return '';
     try {
+      // BD time (UTC + 6 hours)
       DateTime dt = DateTime.parse(timestamp).toUtc().add(const Duration(hours: 6));
-
 
       const List<String> shortMonths = [
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -57,7 +54,6 @@ class UserCard extends StatelessWidget {
     Color lightBgColor;
     IconData statusIcon;
 
-
     if (status == "paid") {
       themeColor = const Color(0xFF00C853);
       lightBgColor = const Color(0xFFE8F5E9);
@@ -76,15 +72,15 @@ class UserCard extends StatelessWidget {
       statusIcon = Icons.access_time_rounded;
     }
 
-
     bool isVip = status == "paid";
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
       decoration: BoxDecoration(
+        // Enhanced premium gradient for Paid users
         gradient: isVip
             ? const LinearGradient(
-          colors: [Color(0xFFE8F5E9), Color(0xFFF1F8E9)],
+          colors: [Color(0xFFE8FDE8), Color(0xFFF0FFF0)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         )
@@ -94,13 +90,13 @@ class UserCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
             color: isVip ? Colors.green.withOpacity(0.3) : Colors.transparent,
-            width: 1.5
-        ),
+            width: 1.5),
         boxShadow: [
+          // Increased elevation for a lifted look
           BoxShadow(
-            offset: const Offset(0, 4),
-            blurRadius: 15,
-            color: Colors.grey.withOpacity(0.08),
+            offset: const Offset(0, 6),
+            blurRadius: 20,
+            color: Colors.grey.withOpacity(0.12),
           ),
         ],
       ),
@@ -110,7 +106,7 @@ class UserCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-
+              // User Avatar
               Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
@@ -126,6 +122,7 @@ class UserCard extends StatelessWidget {
 
               const SizedBox(width: 16),
 
+              // User Details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,8 +135,8 @@ class UserCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 18, // Slightly larger and bolder
+                              fontWeight: FontWeight.w800,
                               color: Colors.blueGrey.shade900,
                             ),
                           ),
@@ -158,13 +155,13 @@ class UserCard extends StatelessWidget {
                       ),
                     ),
 
-
                     if (time != null && time!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Row(
                           children: [
-                            Icon(Icons.access_time, size: 11, color: Colors.blueGrey.shade400),
+                            Icon(Icons.access_time,
+                                size: 11, color: Colors.blueGrey.shade400),
                             const SizedBox(width: 4),
                             Text(
                               _formatCompactBDTime(time),
@@ -178,20 +175,21 @@ class UserCard extends StatelessWidget {
                         ),
                       ),
 
-
                     const SizedBox(height: 8),
 
-
+                    // Status Tag
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: isVip ? Colors.white : lightBgColor,
                         borderRadius: BorderRadius.circular(8),
                         border: isVip ? Border.all(color: Colors.green.shade100) : null,
                       ),
                       child: Text(
-
-                        (status == "unpaid" && isCancelled) ? "CANCELLED" : status.toUpperCase(),
+                        (status == "unpaid" && isCancelled)
+                            ? "CANCELLED"
+                            : status.toUpperCase(),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -204,6 +202,7 @@ class UserCard extends StatelessWidget {
                 ),
               ),
 
+              // Action Buttons for Verifying status
               if (status == "verifying")
                 Row(
                   children: [
@@ -217,7 +216,9 @@ class UserCard extends StatelessWidget {
                           "Reject?",
                           "Mark as Unpaid (Cancelled)?",
                         );
-                        if (confirm == true) showLongPressAnimation(context, onReject);
+                        if (confirm == true) {
+                          onReject();
+                        }
                       },
                     ),
                     const SizedBox(width: 10),
@@ -231,7 +232,9 @@ class UserCard extends StatelessWidget {
                           "Approve?",
                           "Mark as completed?",
                         );
-                        if (confirm == true) showLongPressAnimation(context, onAccept);
+                        if (confirm == true) {
+                          onAccept();
+                        }
                       },
                     ),
                   ],

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,66 +5,61 @@ void showLongPressAnimation(BuildContext context, VoidCallback onFinished) {
   showDialog(
     context: context,
     barrierDismissible: false,
+    barrierColor: Colors.black.withOpacity(0.7),
     builder: (context) {
-      return _LongPressWidget(onFinished: onFinished);
+      return _LongPressDialog(onFinished: onFinished);
     },
   );
 }
 
-class _LongPressWidget extends StatefulWidget {
+class _LongPressDialog extends StatefulWidget {
   final VoidCallback onFinished;
-  const _LongPressWidget({required this.onFinished});
+
+  const _LongPressDialog({required this.onFinished});
 
   @override
-  State<_LongPressWidget> createState() => _LongPressWidgetState();
+  State<_LongPressDialog> createState() => _LongPressDialogState();
 }
 
-class _LongPressWidgetState extends State<_LongPressWidget>
+class _LongPressDialogState extends State<_LongPressDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _pressRotationAnimation;
-  late Animation<double> _shadowElevationAnimation;
+  bool _isPressed = false;
+  bool _completed = false;
 
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-    );
-
-    _pressRotationAnimation = Tween<double>(begin: 0.0, end: -0.05).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
-    _shadowElevationAnimation = Tween<double>(begin: 0.0, end: 15.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
-
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.forward) {
         HapticFeedback.lightImpact();
+        setState(() {
+          _isPressed = true;
+        });
       }
+
       if (status == AnimationStatus.completed) {
         HapticFeedback.heavyImpact();
-        if(mounted && Navigator.of(context).canPop()) {
-          Navigator.pop(context);
-        }
+        _completed = true;
+
+        // Close dialog first
+        Navigator.of(context).pop();
+
+        // Execute callback
         widget.onFinished();
+      }
+
+      if (status == AnimationStatus.dismissed ||
+          status == AnimationStatus.reverse) {
+        setState(() {
+          _isPressed = false;
+        });
       }
     });
   }
@@ -76,94 +70,124 @@ class _LongPressWidgetState extends State<_LongPressWidget>
     super.dispose();
   }
 
+  void _handleTapDown() {
+    if (!_completed && _controller.status != AnimationStatus.forward) {
+      _controller.forward();
+    }
+  }
+
+  void _handleTapUp() {
+    if (_controller.status == AnimationStatus.forward && !_completed) {
+      _controller.reverse();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-
-    return Center(
-      child: SingleChildScrollView(
-
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "Hold to Confirm",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.none,
-                fontFamily: 'Arial',
+    return GestureDetector(
+      onTapDown: (_) => _handleTapDown(),
+      onTapUp: (_) => _handleTapUp(),
+      onTapCancel: () => _handleTapUp(),
+      behavior: HitTestBehavior.opaque,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          color: Colors.transparent,
+          width: double.infinity,
+          height: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Hold to Confirm",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 60),
-            GestureDetector(
-              onTapDown: (_) => _controller.forward(),
-              onTapUp: (_) {
-                if (_controller.status != AnimationStatus.completed) {
-                  _controller.reverse();
-                }
-              },
-              onTapCancel: () => _controller.reverse(),
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return Transform(
-                    alignment: FractionalOffset.center,
-                    transform: Matrix4.identity()
-                      ..setEntry(3, 2, 0.0015)
-                      ..rotateX(_pressRotationAnimation.value),
-                    child: Stack(
+              const SizedBox(height: 40),
+
+              GestureDetector(
+                onTapDown: (_) => _handleTapDown(),
+                onTapUp: (_) => _handleTapUp(),
+                onTapCancel: () => _handleTapUp(),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Stack(
                       alignment: Alignment.center,
                       children: [
+                        SizedBox(
+                          width: 150,
+                          height: 150,
+                          child: CircularProgressIndicator(
+                            value: _controller.value,
+                            strokeWidth: 6,
+                            valueColor: const AlwaysStoppedAnimation(
+                              Colors.blueAccent,
+                            ),
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+
                         Container(
-                          height: 125,
-                          width: 125,
+                          width: 120,
+                          height: 120,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: _isPressed
+                                ? Colors.blue.shade50
+                                : Colors.white,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),
-                                blurRadius: _shadowElevationAnimation.value,
-                                spreadRadius: _shadowElevationAnimation.value / 2,
-                                offset: Offset(0, _shadowElevationAnimation.value / 2),
+                                blurRadius: 10,
+                                spreadRadius: 2,
                               ),
                             ],
                           ),
-                        ),
-                        SizedBox(
-                          height: 125,
-                          width: 125,
-                          child: CircularProgressIndicator(
-                            value: _controller.value,
-                            strokeWidth: 8,
-                            valueColor: const AlwaysStoppedAnimation(Colors.blueAccent),
-                            backgroundColor: Colors.transparent,
-                          ),
-                        ),
-                        ScaleTransition(
-                          scale: _scaleAnimation,
-                          child: Container(
-                            height: 100,
-                            width: 100,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.fingerprint,
-                              size: 60,
-                              color: Colors.black87,
-                            ),
+                          child: Icon(
+                            Icons.fingerprint,
+                            size: 60,
+                            color: _isPressed
+                                ? Colors.blueAccent
+                                : Colors.black87,
                           ),
                         ),
                       ],
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 20),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  _isPressed
+                      ? "Keep holding until 100%..."
+                      : "Touch and hold anywhere on screen",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ),
+
+              if (_isPressed)
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: Text(
+                    "${(_controller.value * 100).toInt()}%",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
